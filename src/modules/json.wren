@@ -11,9 +11,6 @@ class JSONOptions {
   #description = "Abort on Error"
   static abortOnError { 2 }
 
-  #description = "Bool Nums and Null always as String"
-  static primitivesAsString { 3 }
-
   #description = "Avoid infinite recursion"
   static checkCircular { 4 }
 
@@ -272,12 +269,7 @@ class JSONEncoder {
     }
 
     if (value is Num || value is Bool || value is Null) {
-      
-      if (JSONOptions.contains(_options, JSONOptions.primitivesAsString)) {
-        return value.toString
-      }
-
-      return value
+      return value.toString
     }
 
     if (value is String) {

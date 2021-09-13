@@ -164,17 +164,13 @@ var TestJSON = Suite.new("JSON") { |it|
     }
 
     it.should("convert Bools") {
-      Expect.call(JSON.stringify(true, JSONOptions.primitivesAsString)).toEqual("true")
-      Expect.call(JSON.stringify(false, JSONOptions.primitivesAsString)).toEqual("false")
-      Expect.call(JSON.stringify(true)).toEqual(true)
-      Expect.call(JSON.stringify(false)).toEqual(false)
+      Expect.call(JSON.stringify(true)).toEqual("true")
+      Expect.call(JSON.stringify(false)).toEqual("false")
     }
 
     it.should("convert Nums") {
-      Expect.call(JSON.stringify(2, JSONOptions.primitivesAsString)).toEqual("2")
-      Expect.call(JSON.stringify(-3.5, JSONOptions.primitivesAsString)).toEqual("-3.5")
-      Expect.call(JSON.stringify(2)).toEqual(2)
-      Expect.call(JSON.stringify(-3.5)).toEqual(-3.5)
+      Expect.call(JSON.stringify(2)).toEqual("2")
+      Expect.call(JSON.stringify(-3.5)).toEqual("-3.5")
     }
 
     it.should("handle a basic Map") {
