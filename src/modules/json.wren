@@ -1,17 +1,29 @@
 // Extracted from https://github.com/domeengine/dome/blob/develop/src/modules/json.wren
+// Loosely based on https://github.com/brandly/wren-json/blob/master/json.wren
 
-class JsonOptions {
+class JSONOptions {
+  #description = "No options"
   static nil { 0 }
-  static escapeSlashes { 1 }
+
+  #description = "Escape `/` char"
+  static escapeSolidus { 1 }
+
+  #description = "Abort on Error"
   static abortOnError { 2 }
+
+  #description = "Bool Nums and Null always as String"
+  static primitivesAsString { 3 }
+
+  #description = "Avoid infinite recursion"
   static checkCircular { 4 }
 
+  #description = "true if `option` is within `options`"
   static contains(options, option) {
-    return ((options & option) != JsonOptions.nil)
+    return ((options & option) != JSONOptions.nil)
   }
 }
 
-class JsonError {
+class JSONError {
   line { _line }
   position { _position }
   message { _message }
@@ -24,9 +36,16 @@ class JsonError {
     _found = found
   }
 
-  static empty() {
-    return JsonError.new(0, 0, "", false)
+  construct abort(message) {
+    var error = JSONError.new(0, 0, message, false)
+    Fiber.abort(error)
   }
+
+  static empty() {
+    return JSONError.new(0, 0, "", false)
+  }
+
+  toString {"[Error] JSON | line: %(line) | pos: %(position) | %(message)"}
 }
 
 // pdjson.h:
@@ -51,7 +70,7 @@ class Token {
   static isNull { 11 }
 }
 
-class JsonStream {
+class JSONStream {
   foreign stream_begin(value)
   foreign stream_end()
   foreign next
@@ -59,7 +78,6 @@ class JsonStream {
   foreign error_message
   foreign lineno
   foreign pos
-  foreign static escapechar(value, options)
 
   result { _result }
   error { _error }
@@ -68,7 +86,7 @@ class JsonStream {
 
   construct new(raw, options) {
     _result = {}
-    _error = JsonError.empty()
+    _error = JSONError.empty()
     _lastEvent = null
     _raw = raw
     _options = options
@@ -87,10 +105,10 @@ class JsonStream {
     _lastEvent = event
 
     if (event == Token.isError) {
-      _error = JsonError.new(lineno, pos, error_message, true)
-      if (JsonOptions.contains(_options, JsonOptions.abortOnError)) {
+      _error = JSONError.new(lineno, pos, error_message, true)
+      if (JSONOptions.contains(_options, JSONOptions.abortOnError)) {
         end()
-        Fiber.abort("JSON error - line %(lineno) pos %(pos): %(error_message)")
+        Fiber.abort(_error)
       }
       return
     }
@@ -143,17 +161,91 @@ class JsonStream {
   }
 }
 
-// protocol for Json encodable values
-// So they can override how to
-class JsonEncodable {
-  toJson {this.toString}
-  toJSON {toJson}
+// Protocol for JSON encodable values
+// prefer implementing toJSON method instead of relying on toString
+class JSONEncodable {
+  toJSON {this.toString}
 }
 
-class JsonEncoder {
+class JSONEscapeChars {
+  static hexchars {["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"]}
+
+  static toHex(byte) {
+    var hex = ""
+    while (byte > 0) {
+      var c = byte % 16
+      hex = hexchars[c] + hex
+      byte = byte >> 4
+    }
+    return hex
+  }
+  
+  static lpad(s, count, with) {
+    while (s.count < count) {
+      s = "%(with)%(s)"
+    }
+    return s
+  }
+
+  static escape(text) {
+    var substrings = []
+    // Escape special characters
+    for (char in text) {
+      if (char == "\"") {
+        substrings.add("\\\"")
+      } else if (char == "\\") {
+        substrings.add("\\\\")
+      } else if (char == "\b") {
+        substrings.add("\\b")
+      } else if (char == "\f") {
+        substrings.add("\\f")
+      } else if (char == "\n") {
+        substrings.add("\\n")
+      } else if (char == "\r") {
+        substrings.add("\\r")
+      } else if (char == "\t") {
+        substrings.add("\\t")
+      } else if (char.bytes[0] <= 0x1f) {
+        // Control characters!
+        var byte = char.bytes[0]
+        var hex = lpad(toHex(byte), 4, "0")
+        substrings.add("\\u" + hex)
+      } else {
+        substrings.add(char)
+      }
+    }
+    return "\"" + substrings.join("") + "\""
+  }
+
+  static escape(text, options) {
+    var string = text
+
+    // Escape / (solidus, slash)
+    // https://stackoverflow.com/a/9735430
+    // The feature of the slash escape allows JSON to be embedded in HTML (as SGML) and XML.
+    // https://www.w3.org/TR/html4/appendix/notes.html#h-B.3.2
+    // This is optional escaping. Disabled by default.
+    // use JSONOptions.escapeSolidus option to enable it
+    if (JSONOptions.contains(options, JSONOptions.escapeSolidus)) {
+      var substrings = []
+      for (char in string) {
+        if (char == "/") {
+          substrings.add("\\/")
+        } else {
+          substrings.add(char)
+        }
+      }
+      string = substrings.join("")
+    }
+
+    return escape(string)
+  }
+}
+
+class JSONEncoder {
   construct new(options) {
     _options = options
-    _circularStack = JsonOptions.contains(options, JsonOptions.checkCircular) ? [] : null
+    _circularStack = JSONOptions.contains(options, JSONOptions.checkCircular) ? [] : null
   }
 
   isCircle(value) {
@@ -176,22 +268,21 @@ class JsonEncoder {
 
   encode(value) {
     if (isCircle(value)) {
-      Fiber.abort("Circular JSON")
+      JSONError.abort("Circular JSON")
     }
 
-    // Loosely based on https://github.com/brandly/wren-json/blob/master/json.wren
     if (value is Num || value is Bool || value is Null) {
-      return value.toString
+      
+      if (JSONOptions.contains(_options, JSONOptions.primitivesAsString)) {
+        return value.toString
+      }
+
+      return value
     }
 
     if (value is String) {
       // Escape special characters
-      var substrings = []
-      for (char in value) {
-        substrings.add(JsonStream.escapechar(char, _options))
-      }
-
-      return "\"" + substrings.join("") + "\""
+      return JSONEscapeChars.escape(value, _options)
     }
 
     if (value is List) {
@@ -216,8 +307,10 @@ class JsonEncoder {
       return "{" + substrings.join(",") + "}"
     }
 
-    if (value is JsonEncodable) {
-      return value.toJson
+    // Value is not a primitive
+    // Check the protocol first
+    if (value is JSONEncodable) {
+      return value.toJSON
     }
 
     // Default behaviour is to invoke the toString method
@@ -225,24 +318,18 @@ class JsonEncoder {
   }
 }
 
-class Json {
+class JSON {
 
-  static encode(value, options) { JsonEncoder.new(options).encode(value) }
+  static defaultOptions {JSONOptions.abortOnError | JSONOptions.checkCircular}
+
+  static encode(value, options) { JSONEncoder.new(options).encode(value) }
 
   static encode(value) {
-    return Json.encode(value, JsonOptions.abortOnError)
-  }
-
-  static parse(value) {
-    return Json.decode(value)
-  }
-
-  static stringify(value) {
-    return Json.encode(value)
+    return JSON.encode(value, defaultOptions)
   }
 
   static decode(value, options) {
-    var stream = JsonStream.new(value, options)
+    var stream = JSONStream.new(value, options)
     stream.begin()
 
     var result = stream.result
@@ -255,11 +342,26 @@ class Json {
   }
 
   static decode(value) {
-    return Json.decode(value, JsonOptions.abortOnError)
+    return JSON.decode(value, defaultOptions)
+  }
+
+  #alias(encode)
+
+  static stringify(value, options) {
+    return JSON.encode(value, options)
+  }
+
+  static stringify(value) {
+    return JSON.encode(value)
+  }
+
+  #alias(decode)
+
+  static parse(value, options) {
+    return JSON.decode(value, options)
+  }
+
+  static parse(value) {
+    return JSON.decode(value)
   }
 }
-
-var JSON = Json
-var JSONOptions = JsonOptions
-var JSONError = JsonError
-var JSONEncodable = JsonEncodable

@@ -330,9 +330,12 @@
     <ClInclude Include="..\..\deps\wren\src\vm\wren_utils.h" />
     <ClInclude Include="..\..\deps\wren\src\vm\wren_value.h" />
     <ClInclude Include="..\..\deps\wren\src\vm\wren_vm.h" />
+    <ClInclude Include="..\..\src\binary_libs.h" />
     <ClInclude Include="..\..\src\essentials.h" />
+    <ClInclude Include="..\..\src\modules\json.h" />
     <ClInclude Include="..\..\src\modules\mirror.h" />
     <ClInclude Include="..\..\src\modules\time.h" />
+    <ClInclude Include="..\..\src\vendor\pdjson.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\deps\libuv\src\fs-poll.c" />
@@ -380,8 +383,10 @@
     <ClCompile Include="..\..\deps\wren\src\vm\wren_value.c" />
     <ClCompile Include="..\..\deps\wren\src\vm\wren_vm.c" />
     <ClCompile Include="..\..\src\essentials.c" />
+    <ClCompile Include="..\..\src\modules\json.c" />
     <ClCompile Include="..\..\src\modules\mirror.c" />
     <ClCompile Include="..\..\src\modules\time.c" />
+    <ClCompile Include="..\..\src\vendor\pdjson.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\src\modules\wren_code.inc" />

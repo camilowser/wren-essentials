@@ -1,3 +1,5 @@
+import "json" for JSONError
+
 /**
  * An Expectation captures an assertion about a value made in a test block. It
  * is used by the default matchers to communicate the pass/fail state of a test
@@ -14,7 +16,7 @@ class Expectation {
    */
   construct new(passed, message) {
     _passed = passed
-    _message = message
+    _message = message.toString
   }
 
   /**
@@ -765,12 +767,13 @@ class FiberMatchers is BaseMatchers {
       var message = "Expected a runtime error but it did not occur"
       report_(false, message)
     } else {
-      if (value.error.startsWith("JSON error - ")) {
+
+      if (value.error is JSONError) {
         return
       }
 
       var message = "Expected a JSON runtime error" +
-          " but got: " + value.error
+          " but got: " + value.error.toString
       // var message = "Expected a runtime error with error: " + errorMessage +
           // " but got: " + value.error
       report_(false, message)

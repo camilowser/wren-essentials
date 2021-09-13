@@ -1,5 +1,5 @@
 import "./test-framework" for Expect, Suite, ConsoleReporter
-import "json" for JSON
+import "json" for JSON, JSONOptions
 
 var TestJSON = Suite.new("JSON") { |it|
   var mapString = "{ \"age\": 18, \"name\": \"ethan\", \"cool\": false, \"friends\": null }"
@@ -124,6 +124,10 @@ var TestJSON = Suite.new("JSON") { |it|
       Expect.call(JSON.parse("\"hey \\\\ man\"")).toEqual("hey \\ man")
     }
 
+    it.should("handle solidus in strings") {
+      Expect.call(JSON.parse("\"hey / man\"", JSONOptions.escapeSolidus)).toEqual("hey \\/ man")
+    }
+
     it.should("handle backspaces in strings") {
       Expect.call(JSON.parse("\"hey \\b man\"")).toEqual("hey \b man")
     }
@@ -159,14 +163,18 @@ var TestJSON = Suite.new("JSON") { |it|
       Expect.call(JSON.stringify("hello")).toEqual("\"hello\"")
     }
 
-    it.should("convert Bools into their string form") {
-      Expect.call(JSON.stringify(true)).toEqual("true")
-      Expect.call(JSON.stringify(false)).toEqual("false")
+    it.should("convert Bools") {
+      Expect.call(JSON.stringify(true, JSONOptions.primitivesAsString)).toEqual("true")
+      Expect.call(JSON.stringify(false, JSONOptions.primitivesAsString)).toEqual("false")
+      Expect.call(JSON.stringify(true)).toEqual(true)
+      Expect.call(JSON.stringify(false)).toEqual(false)
     }
 
-    it.should("convert Nums into their string form") {
-      Expect.call(JSON.stringify(2)).toEqual("2")
-      Expect.call(JSON.stringify(-3.5)).toEqual("-3.5")
+    it.should("convert Nums") {
+      Expect.call(JSON.stringify(2, JSONOptions.primitivesAsString)).toEqual("2")
+      Expect.call(JSON.stringify(-3.5, JSONOptions.primitivesAsString)).toEqual("-3.5")
+      Expect.call(JSON.stringify(2)).toEqual(2)
+      Expect.call(JSON.stringify(-3.5)).toEqual(-3.5)
     }
 
     it.should("handle a basic Map") {
